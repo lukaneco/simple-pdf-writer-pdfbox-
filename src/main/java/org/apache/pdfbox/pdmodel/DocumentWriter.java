@@ -10,28 +10,46 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
+import java.util.logging.Logger;
 
 import javax.swing.AbstractButton;
+import javax.swing.ComboBoxModel;
+import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPasswordField;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.text.JTextComponent;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
 import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy;
+import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 
 import net.miginfocom.swing.MigLayout;
 
 public class DocumentWriter implements ActionListener {
 
+	private static final Logger LOG = Logger.getLogger(DocumentWriter.class.toString());
+
 	private JTextComponent tfText, pfOwner, pfUser, tfFile = null;
 
 	private AbstractButton btnExecute, btnCopy = null;
+
+	private ComboBoxModel<PDFont> fonts = null;
 
 	private DocumentWriter() {
 	}
@@ -41,7 +59,13 @@ public class DocumentWriter implements ActionListener {
 		final String wrap = String.format("span %1$s,%2$s", 2, "wrap");
 		//
 		container.add(new JLabel("Text"));
-		container.add(tfText = new JTextField(), wrap);
+		container.add(new JScrollPane(tfText = new JTextArea(10, 100)), wrap);
+		//
+		container.add(new JLabel("Font"));
+		container.add(
+				new JComboBox<>(
+						fonts = new DefaultComboBoxModel<PDFont>(ArrayUtils.insert(0, getFonts(), (PDFont) null))),
+				wrap);
 		//
 		container.add(new JLabel("Owner Password"));
 		container.add(pfOwner = new JPasswordField(), wrap);
@@ -63,6 +87,49 @@ public class DocumentWriter implements ActionListener {
 		setWidth(width - (int) btnCopy.getPreferredSize().getWidth(), tfFile);
 		setWidth(width, tfText, pfOwner, pfUser);
 		//
+	}
+
+	private static PDFont[] getFonts() {
+		//
+		List<PDFont> result = null;
+		//
+		final Field[] fs = PDType1Font.class.getDeclaredFields();
+		Field f = null;
+		PDFont font = null;
+		//
+		for (int i = 0; fs != null && i < fs.length; i++) {
+			//
+			if ((f = fs[i]) == null || !Modifier.isStatic(f.getModifiers())) {
+				continue;
+			} // skip null
+				//
+			if (!f.isAccessible()) {
+				f.setAccessible(true);
+			}
+			//
+			try {
+				//
+				if ((font = cast(PDFont.class, f.get(null))) == null) {
+					continue;
+				}
+				//
+				if (result == null) {
+					result = new ArrayList<>();
+				}
+				result.add(font);
+				//
+			} catch (final IllegalAccessException e) {
+				LOG.severe(e.getMessage());
+			}
+			//
+		} // for
+			//
+		return result != null ? result.toArray(new PDFont[result.size()]) : null;
+		//
+	}
+
+	private static <T> T cast(final Class<T> clz, final Object instance) {
+		return clz != null && clz.isInstance(instance) ? clz.cast(instance) : null;
 	}
 
 	private static void addActionListener(final ActionListener actionListener, final AbstractButton... bs) {
@@ -88,6 +155,12 @@ public class DocumentWriter implements ActionListener {
 		//
 		if (Objects.deepEquals(source, btnExecute)) {
 			//
+			final PDFont font = cast(PDFont.class, fonts != null ? fonts.getSelectedItem() : null);
+			if (font == null) {
+				JOptionPane.showMessageDialog(null, "Please select a font");
+				return;
+			}
+			//
 			final PDPage page = new PDPage();
 			final PDDocument document = new PDDocument();
 			//
@@ -96,12 +169,18 @@ public class DocumentWriter implements ActionListener {
 				document.setVersion(1.7f);
 				document.addPage(page);
 				//
-				contentStream.beginText();
-				contentStream.setFont(PDType1Font.COURIER, 12);
-				contentStream.newLineAtOffset(10, page.getMediaBox().getHeight() - 20);
-				contentStream.showText(getText(tfText));
-				contentStream.endText();
+				final String[] lines = StringUtils.split(getText(tfText));
 				//
+				for (int i = 0; lines != null && i < lines.length; i++) {
+					//
+					contentStream.beginText();
+					contentStream.setFont(font, 12);
+					contentStream.newLineAtOffset(10, page.getMediaBox().getHeight() - 20 * (i + 1));
+					contentStream.showText(lines[i]);
+					contentStream.endText();
+					//
+				} // for
+					//
 				contentStream.close();
 				//
 				final File file = new File("test.pdf");
