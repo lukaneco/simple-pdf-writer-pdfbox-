@@ -13,7 +13,9 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.logging.Logger;
 
@@ -34,6 +36,7 @@ import javax.swing.text.JTextComponent;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
 import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy;
 import org.apache.pdfbox.pdmodel.font.PDFont;
@@ -49,7 +52,11 @@ public class DocumentWriter implements ActionListener {
 
 	private AbstractButton btnExecute, btnCopy = null;
 
-	private ComboBoxModel<PDFont> fonts = null;
+	private ComboBoxModel<Object> pageSize = null;
+
+	private Map<String, PDRectangle> pageSizeMap = null;
+
+	private ComboBoxModel<PDFont> font = null;
 
 	private DocumentWriter() {
 	}
@@ -58,13 +65,18 @@ public class DocumentWriter implements ActionListener {
 		//
 		final String wrap = String.format("span %1$s,%2$s", 2, "wrap");
 		//
+		container.add(new JLabel("Page Size"));
+		container.add(
+				new JComboBox<>(pageSize = new DefaultComboBoxModel<>(
+						ArrayUtils.insert(0, (pageSizeMap = getPageSizeMap()).keySet().toArray(), (Object) null))),
+				wrap);
+		//
 		container.add(new JLabel("Text"));
 		container.add(new JScrollPane(tfText = new JTextArea(10, 100)), wrap);
 		//
 		container.add(new JLabel("Font"));
 		container.add(
-				new JComboBox<>(
-						fonts = new DefaultComboBoxModel<PDFont>(ArrayUtils.insert(0, getFonts(), (PDFont) null))),
+				new JComboBox<>(font = new DefaultComboBoxModel<>(ArrayUtils.insert(0, getFonts(), (PDFont) null))),
 				wrap);
 		//
 		container.add(new JLabel("Owner Password"));
@@ -128,6 +140,45 @@ public class DocumentWriter implements ActionListener {
 		//
 	}
 
+	private static Map<String, PDRectangle> getPageSizeMap() {
+		//
+		Map<String, PDRectangle> result = null;
+		//
+		final Field[] fs = PDRectangle.class.getDeclaredFields();
+		Field f = null;
+		PDRectangle pdRectangle = null;
+		//
+		for (int i = 0; fs != null && i < fs.length; i++) {
+			//
+			if ((f = fs[i]) == null || !Modifier.isStatic(f.getModifiers())) {
+				continue;
+			} // skip null
+				//
+			if (!f.isAccessible()) {
+				f.setAccessible(true);
+			}
+			//
+			try {
+				//
+				if ((pdRectangle = cast(PDRectangle.class, f.get(null))) == null) {
+					continue;
+				}
+				//
+				if (result == null) {
+					result = new LinkedHashMap<>();
+				}
+				result.put(f.getName(), pdRectangle);
+				//
+			} catch (final IllegalAccessException e) {
+				LOG.severe(e.getMessage());
+			}
+			//
+		} // for
+			//
+		return result;
+		//
+	}
+
 	private static <T> T cast(final Class<T> clz, final Object instance) {
 		return clz != null && clz.isInstance(instance) ? clz.cast(instance) : null;
 	}
@@ -155,13 +206,14 @@ public class DocumentWriter implements ActionListener {
 		//
 		if (Objects.deepEquals(source, btnExecute)) {
 			//
-			final PDFont font = cast(PDFont.class, fonts != null ? fonts.getSelectedItem() : null);
+			final PDFont font = cast(PDFont.class, getSelectedItem(this.font));
 			if (font == null) {
 				JOptionPane.showMessageDialog(null, "Please select a font");
 				return;
 			}
 			//
-			final PDPage page = new PDPage();
+			final PDRectangle pageSize = cast(PDRectangle.class, get(pageSizeMap, getSelectedItem(this.pageSize)));
+			final PDPage page = pageSize != null ? new PDPage(pageSize) : new PDPage();
 			final PDDocument document = new PDDocument();
 			//
 			try (final PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
@@ -214,6 +266,14 @@ public class DocumentWriter implements ActionListener {
 			//
 		} // if
 			//
+	}
+
+	private static <V> V get(final Map<?, V> instance, final Object key) {
+		return instance != null ? instance.get(key) : null;
+	}
+
+	private static Object getSelectedItem(final ComboBoxModel<?> instance) {
+		return instance != null ? instance.getSelectedItem() : null;
 	}
 
 	private static void setWidth(final int width, final Component... cs) {
