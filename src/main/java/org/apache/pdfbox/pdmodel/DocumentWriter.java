@@ -48,7 +48,7 @@ public class DocumentWriter implements ActionListener {
 
 	private static final Logger LOG = Logger.getLogger(DocumentWriter.class.toString());
 
-	private JTextComponent tfText, pfOwner, pfUser, tfFile = null;
+	private JTextComponent tfFontSize, tfText, pfOwner, pfUser, tfFile = null;
 
 	private AbstractButton btnExecute, btnCopy = null;
 
@@ -70,6 +70,9 @@ public class DocumentWriter implements ActionListener {
 				new JComboBox<>(pageSize = new DefaultComboBoxModel<>(
 						ArrayUtils.insert(0, (pageSizeMap = getPageSizeMap()).keySet().toArray(), (Object) null))),
 				wrap);
+		//
+		container.add(new JLabel("Font size"));
+		container.add(tfFontSize = new JTextField("12"), wrap);
 		//
 		container.add(new JLabel("Text"));
 		container.add(new JScrollPane(tfText = new JTextArea(10, 100)), wrap);
@@ -97,7 +100,7 @@ public class DocumentWriter implements ActionListener {
 		//
 		final int width = 250;
 		setWidth(width - (int) btnCopy.getPreferredSize().getWidth(), tfFile);
-		setWidth(width, tfText, pfOwner, pfUser);
+		setWidth(width, tfFontSize, tfText, pfOwner, pfUser);
 		//
 	}
 
@@ -212,6 +215,12 @@ public class DocumentWriter implements ActionListener {
 				return;
 			}
 			//
+			final Integer fontSize = valueOf(getText(tfFontSize));
+			if (fontSize == null) {
+				JOptionPane.showMessageDialog(null, "Please enter a vaild font size");
+				return;
+			}
+			//
 			final PDRectangle pageSize = cast(PDRectangle.class, get(pageSizeMap, getSelectedItem(this.pageSize)));
 			final PDPage page = pageSize != null ? new PDPage(pageSize) : new PDPage();
 			final PDDocument document = new PDDocument();
@@ -226,8 +235,8 @@ public class DocumentWriter implements ActionListener {
 				for (int i = 0; lines != null && i < lines.length; i++) {
 					//
 					contentStream.beginText();
-					contentStream.setFont(font, 12);
-					contentStream.newLineAtOffset(10, page.getMediaBox().getHeight() - 20 * (i + 1));
+					contentStream.setFont(font, fontSize.intValue());
+					contentStream.newLineAtOffset(10, page.getMediaBox().getHeight() - fontSize.intValue() * (i + 1));
 					contentStream.showText(lines[i]);
 					contentStream.endText();
 					//
@@ -266,6 +275,14 @@ public class DocumentWriter implements ActionListener {
 			//
 		} // if
 			//
+	}
+
+	private static Integer valueOf(final String instance) {
+		try {
+			return instance != null ? Integer.valueOf(instance) : null;
+		} catch (final NumberFormatException e) {
+			return null;
+		}
 	}
 
 	private static <V> V get(final Map<?, V> instance, final Object key) {
