@@ -48,7 +48,7 @@ public class DocumentWriter implements ActionListener {
 
 	private static final Logger LOG = Logger.getLogger(DocumentWriter.class.toString());
 
-	private JTextComponent tfFontSize, tfText, pfOwner, pfUser, tfFile = null;
+	private JTextComponent tfFontSize, tfMargin, tfText, pfOwner, pfUser, tfFile = null;
 
 	private AbstractButton btnExecute, btnCopy = null;
 
@@ -74,13 +74,16 @@ public class DocumentWriter implements ActionListener {
 		container.add(new JLabel("Font size"));
 		container.add(tfFontSize = new JTextField("12"), wrap);
 		//
-		container.add(new JLabel("Text"));
-		container.add(new JScrollPane(tfText = new JTextArea(10, 100)), wrap);
+		container.add(new JLabel("Margin"));
+		container.add(tfMargin = new JTextField("10"), wrap);
 		//
 		container.add(new JLabel("Font"));
 		container.add(
 				new JComboBox<>(font = new DefaultComboBoxModel<>(ArrayUtils.insert(0, getFonts(), (PDFont) null))),
 				wrap);
+		//
+		container.add(new JLabel("Text"));
+		container.add(new JScrollPane(tfText = new JTextArea(10, 100)), wrap);
 		//
 		container.add(new JLabel("Owner Password"));
 		container.add(pfOwner = new JPasswordField(), wrap);
@@ -100,7 +103,7 @@ public class DocumentWriter implements ActionListener {
 		//
 		final int width = 250;
 		setWidth(width - (int) btnCopy.getPreferredSize().getWidth(), tfFile);
-		setWidth(width, tfFontSize, tfText, pfOwner, pfUser);
+		setWidth(width, tfFontSize, tfMargin, tfText, pfOwner, pfUser);
 		//
 	}
 
@@ -221,6 +224,12 @@ public class DocumentWriter implements ActionListener {
 				return;
 			}
 			//
+			final Integer margin = valueOf(getText(tfMargin));
+			if (margin == null) {
+				JOptionPane.showMessageDialog(null, "Please enter a vaild margin");
+				return;
+			}
+			//
 			final PDRectangle pageSize = cast(PDRectangle.class, get(pageSizeMap, getSelectedItem(this.pageSize)));
 			final PDPage page = pageSize != null ? new PDPage(pageSize) : new PDPage();
 			final PDDocument document = new PDDocument();
@@ -230,18 +239,49 @@ public class DocumentWriter implements ActionListener {
 				document.setVersion(1.7f);
 				document.addPage(page);
 				//
-				final String[] lines = StringUtils.split(getText(tfText));
+				final List<String> lines = new ArrayList<>();
 				//
-				for (int i = 0; lines != null && i < lines.length; i++) {
-					//
-					contentStream.beginText();
-					contentStream.setFont(font, fontSize.intValue());
-					contentStream.newLineAtOffset(10, page.getMediaBox().getHeight() - fontSize.intValue() * (i + 1));
-					contentStream.showText(lines[i]);
-					contentStream.endText();
-					//
-				} // for
-					//
+				final PDRectangle mediabox = page.getMediaBox();
+				float width = mediabox.getWidth() - 2 * margin.intValue();
+				//
+				for (String text : StringUtils.split(getText(tfText), "\n")) {
+					int lastSpace = -1;
+					while (text.length() > 0) {
+						int spaceIndex = text.indexOf(' ', lastSpace + 1);
+						if (spaceIndex < 0)
+							spaceIndex = text.length();
+						String subString = text.substring(0, spaceIndex);
+						float size = fontSize * font.getStringWidth(subString) / 1000;
+						if (size > width) {
+							if (lastSpace < 0) {
+								lastSpace = spaceIndex;
+							}
+							subString = text.substring(0, lastSpace);
+							lines.add(subString);
+							text = text.substring(lastSpace).trim();
+							lastSpace = -1;
+						} else if (spaceIndex == text.length()) {
+							lines.add(text);
+							text = "";
+						} else {
+							lastSpace = spaceIndex;
+						}
+					}
+				}
+				//
+				float startX = mediabox.getLowerLeftX() + margin.intValue();
+				float startY = mediabox.getUpperRightY() - margin.intValue();
+				float leading = 1.5f * fontSize;
+				//
+				contentStream.beginText();
+				contentStream.setFont(font, fontSize);
+				contentStream.newLineAtOffset(startX, startY);
+				//
+				for (final String line : lines) {
+					contentStream.showText(line);
+					contentStream.newLineAtOffset(0, -leading);
+				}
+				contentStream.endText();
 				contentStream.close();
 				//
 				final File file = new File("test.pdf");
