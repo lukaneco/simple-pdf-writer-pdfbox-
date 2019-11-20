@@ -1,5 +1,6 @@
 package org.apache.pdfbox.pdmodel;
 
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
@@ -17,12 +18,14 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Predicate;
 import java.util.logging.Logger;
 
 import javax.swing.AbstractButton;
 import javax.swing.ComboBoxModel;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
+import javax.swing.JColorChooser;
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -42,15 +45,19 @@ import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy;
 import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 
+import com.google.common.base.Predicates;
+
 import net.miginfocom.swing.MigLayout;
 
 public class DocumentWriter implements ActionListener {
 
 	private static final Logger LOG = Logger.getLogger(DocumentWriter.class.toString());
 
+	private static final String WRAP = "wrap";
+
 	private JTextComponent tfFontSize, tfMargin, tfText, pfOwner, pfUser, tfFile = null;
 
-	private AbstractButton btnExecute, btnCopy = null;
+	private AbstractButton btnColor, btnExecute, btnCopy = null;
 
 	private ComboBoxModel<Object> pageSize = null;
 
@@ -58,12 +65,14 @@ public class DocumentWriter implements ActionListener {
 
 	private ComboBoxModel<PDFont> font = null;
 
+	private Color color = null;
+
 	private DocumentWriter() {
 	}
 
 	private void init(final Container container) {
 		//
-		final String wrap = String.format("span %1$s,%2$s", 2, "wrap");
+		final String wrap = String.format("span %1$s,%2$s", 2, WRAP);
 		//
 		container.add(new JLabel("Page Size"));
 		container.add(
@@ -85,6 +94,9 @@ public class DocumentWriter implements ActionListener {
 		container.add(new JLabel("Text"));
 		container.add(new JScrollPane(tfText = new JTextArea(10, 100)), wrap);
 		//
+		container.add(new JLabel(""));
+		container.add(btnColor = new JButton("Color"), wrap);
+		//
 		container.add(new JLabel("Owner Password"));
 		container.add(pfOwner = new JPasswordField(), wrap);
 		//
@@ -99,7 +111,7 @@ public class DocumentWriter implements ActionListener {
 		container.add(btnCopy = new JButton("Copy"), "wrap");
 		tfFile.setEditable(false);
 		//
-		addActionListener(this, btnExecute, btnCopy);
+		addActionListener(this, btnColor, btnExecute, btnCopy);
 		//
 		final int width = 250;
 		setWidth(width - (int) btnCopy.getPreferredSize().getWidth(), tfFile);
@@ -274,6 +286,8 @@ public class DocumentWriter implements ActionListener {
 				float leading = 1.5f * fontSize;
 				//
 				contentStream.beginText();
+				contentStream.setNonStrokingColor(
+						testAndGet(Predicates.notNull(), color, getForeground(tfText), Color.BLACK));
 				contentStream.setFont(font, fontSize);
 				contentStream.newLineAtOffset(startX, startY);
 				//
@@ -313,8 +327,42 @@ public class DocumentWriter implements ActionListener {
 				clipboard.setContents(new StringSelection(getText(tfFile)), null);
 			}
 			//
-		} // if
+		} else if (Objects.deepEquals(source, btnColor)) {
 			//
+			tfText.setForeground(color = JColorChooser.showDialog(null, "Font color", null));
+			//
+		}
+		//
+	}
+
+	private static <T> T testAndGet(final Predicate<T> predicate, final T... items) {
+		//
+		T item = null;
+		//
+		for (int i = 0; items != null && i < items.length && predicate != null; i++) {
+			if (predicate.test(item = items[i])) {
+				return item;
+			}
+		} // for
+			//
+		return item;
+		//
+	}
+
+	private static Color getForeground(final Component instance) {
+		//
+		try {
+			final Field field = Component.class.getDeclaredField("foreground");
+			if (field != null && !field.isAccessible()) {
+				field.setAccessible(true);
+			}
+			return cast(Color.class, field != null ? field.get(instance) : null);
+		} catch (final NoSuchFieldException | IllegalAccessException e) {
+			LOG.severe(e.getMessage());
+		}
+		//
+		return null;
+		//
 	}
 
 	private static Integer valueOf(final String instance) {
