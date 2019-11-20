@@ -9,6 +9,7 @@ import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.geom.Dimension2D;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -38,9 +39,11 @@ import javax.swing.text.JTextComponent;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
+import org.apache.pdfbox.pdmodel.encryption.ProtectionPolicy;
 import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy;
 import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
@@ -74,56 +77,75 @@ public class DocumentWriter implements ActionListener {
 		//
 		final String wrap = String.format("span %1$s,%2$s", 2, WRAP);
 		//
-		container.add(new JLabel("Page Size"));
-		container.add(
+		add(container, new JLabel("Page Size"));
+		add(container,
 				new JComboBox<>(pageSize = new DefaultComboBoxModel<>(
 						ArrayUtils.insert(0, (pageSizeMap = getPageSizeMap()).keySet().toArray(), (Object) null))),
 				wrap);
 		//
-		container.add(new JLabel("Font size"));
-		container.add(tfFontSize = new JTextField("12"), wrap);
+		add(container, new JLabel("Font size"));
+		add(container, tfFontSize = new JTextField("12"), wrap);
 		//
-		container.add(new JLabel("Margin"));
-		container.add(tfMargin = new JTextField("10"), wrap);
+		add(container, new JLabel("Margin"));
+		add(container, tfMargin = new JTextField("10"), wrap);
 		//
-		container.add(new JLabel("Font"));
-		container.add(
+		add(container, new JLabel("Font"));
+		add(container,
 				new JComboBox<>(font = new DefaultComboBoxModel<>(ArrayUtils.insert(0, getFonts(), (PDFont) null))),
 				wrap);
 		//
-		container.add(new JLabel("Text"));
-		container.add(new JScrollPane(tfText = new JTextArea(10, 100)), wrap);
+		add(container, new JLabel("Text"));
+		add(container, new JScrollPane(tfText = new JTextArea(10, 100)), wrap);
 		//
-		container.add(new JLabel(""));
-		container.add(btnColor = new JButton("Color"), wrap);
+		add(container, new JLabel(""));
+		add(container, btnColor = new JButton("Color"), wrap);
 		//
-		container.add(new JLabel("Owner Password"));
-		container.add(pfOwner = new JPasswordField(), wrap);
+		add(container, new JLabel("Owner Password"));
+		add(container, pfOwner = new JPasswordField(), wrap);
 		//
-		container.add(new JLabel("User Password"));
-		container.add(pfUser = new JPasswordField(), wrap);
+		add(container, new JLabel("User Password"));
+		add(container, pfUser = new JPasswordField(), wrap);
 		//
-		container.add(new JLabel(""));
-		container.add(btnExecute = new JButton("Execute"), wrap);
+		add(container, new JLabel(""));
+		add(container, btnExecute = new JButton("Execute"), wrap);
 		//
-		container.add(new JLabel("File"));
-		container.add(tfFile = new JTextField());
-		container.add(btnCopy = new JButton("Copy"), "wrap");
+		add(container, new JLabel("File"));
+		add(container, tfFile = new JTextField());
+		add(container, btnCopy = new JButton("Copy"), "wrap");
 		tfFile.setEditable(false);
 		//
 		addActionListener(this, btnColor, btnExecute, btnCopy);
 		//
-		final int width = 250;
+		final int width = Math.max(250, (int) getWidth(tfText.getPreferredSize(), 250));
 		setWidth(width - (int) btnCopy.getPreferredSize().getWidth(), tfFile);
 		setWidth(width, tfFontSize, tfMargin, tfText, pfOwner, pfUser);
 		//
 	}
 
+	private static void add(final Container container, final Component component) {
+		if (container != null) {
+			container.add(component);
+		}
+	}
+
+	private static void add(final Container container, final Component component, final Object object) {
+		if (container != null) {
+			container.add(component, object);
+		}
+	}
+
+	private static double getWidth(final Dimension2D instance, final double defaultValue) {
+		return instance != null ? instance.getWidth() : defaultValue;
+	}
+
 	private static PDFont[] getFonts() {
+		return getFonts(PDType1Font.class.getDeclaredFields());
+	}
+
+	private static PDFont[] getFonts(final Field[] fs) {
 		//
 		List<PDFont> result = null;
 		//
-		final Field[] fs = PDType1Font.class.getDeclaredFields();
 		Field f = null;
 		PDFont font = null;
 		//
@@ -159,10 +181,13 @@ public class DocumentWriter implements ActionListener {
 	}
 
 	private static Map<String, PDRectangle> getPageSizeMap() {
+		return getPageSizeMap(PDRectangle.class.getDeclaredFields());
+	}
+
+	private static Map<String, PDRectangle> getPageSizeMap(final Field[] fs) {
 		//
 		Map<String, PDRectangle> result = null;
 		//
-		final Field[] fs = PDRectangle.class.getDeclaredFields();
 		Field f = null;
 		PDRectangle pdRectangle = null;
 		//
@@ -256,7 +281,7 @@ public class DocumentWriter implements ActionListener {
 				final PDRectangle mediabox = page.getMediaBox();
 				float width = mediabox.getWidth() - 2 * margin.intValue();
 				//
-				for (String text : StringUtils.split(getText(tfText), "\n")) {
+				for (String text : ObjectUtils.defaultIfNull(StringUtils.split(getText(tfText), "\n"), new String[0])) {
 					int lastSpace = -1;
 					while (text.length() > 0) {
 						int spaceIndex = text.indexOf(' ', lastSpace + 1);
@@ -294,22 +319,17 @@ public class DocumentWriter implements ActionListener {
 				for (final String line : lines) {
 					contentStream.showText(line);
 					contentStream.newLineAtOffset(0, -leading);
-				}
+				} // for
+					//
 				contentStream.endText();
 				contentStream.close();
 				//
 				final File file = new File("test.pdf");
-				tfFile.setText(file.getAbsolutePath());
+				setText(tfFile, file.getAbsolutePath());
 				//
 				// https://pdfbox.apache.org/1.8/cookbook/encryption.html
 				//
-				final AccessPermission ap = new AccessPermission();
-				//
-				final StandardProtectionPolicy spp = new StandardProtectionPolicy(getText(pfOwner), getText(pfUser),
-						ap);
-				spp.setPreferAES(true);
-				spp.setEncryptionKeyLength(128);
-				document.protect(spp);
+				document.protect(createProtectionPolicy(getText(pfOwner), getText(pfUser), new AccessPermission()));
 				//
 				document.save(file);
 				//
@@ -335,6 +355,23 @@ public class DocumentWriter implements ActionListener {
 		//
 	}
 
+	private static ProtectionPolicy createProtectionPolicy(final String ownerPassword, final String userPassword,
+			final AccessPermission accessPermission) {
+		//
+		final StandardProtectionPolicy result = new StandardProtectionPolicy(ownerPassword, userPassword,
+				accessPermission);
+		result.setPreferAES(true);
+		result.setEncryptionKeyLength(128);
+		return result;
+		//
+	}
+
+	private static void setText(final JTextComponent instance, final String text) {
+		if (instance != null) {
+			instance.setText(text);
+		}
+	}
+
 	private static <T> T testAndGet(final Predicate<T> predicate, final T... items) {
 		//
 		T item = null;
@@ -356,7 +393,7 @@ public class DocumentWriter implements ActionListener {
 			if (field != null && !field.isAccessible()) {
 				field.setAccessible(true);
 			}
-			return cast(Color.class, field != null ? field.get(instance) : null);
+			return cast(Color.class, field != null && instance != null ? field.get(instance) : null);
 		} catch (final NoSuchFieldException | IllegalAccessException e) {
 			LOG.severe(e.getMessage());
 		}
