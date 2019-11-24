@@ -12,7 +12,13 @@ import java.awt.event.ActionListener;
 import java.awt.geom.Dimension2D;
 import java.io.File;
 import java.io.IOException;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -31,6 +37,7 @@ import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
+import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
@@ -67,6 +74,36 @@ public class DocumentWriter implements ActionListener {
 	private Map<String, PDRectangle> pageSizeMap = null;
 
 	private ComboBoxModel<PDFont> font = null;
+
+	@Retention(value = RetentionPolicy.RUNTIME)
+	@Target(value = { ElementType.FIELD })
+	private @interface AccessPermissionField {
+		String methodName();
+	}
+
+	@AccessPermissionField(methodName = "setCanAssembleDocument")
+	private ComboBoxModel<Boolean> canAssembleDocument = null;
+
+	@AccessPermissionField(methodName = "setCanExtractContent")
+	private ComboBoxModel<Boolean> canExtractContent = null;
+
+	@AccessPermissionField(methodName = "setCanExtractForAccessibility")
+	private ComboBoxModel<Boolean> canExtractForAccessibility = null;
+
+	@AccessPermissionField(methodName = "setCanFillInForm")
+	private ComboBoxModel<Boolean> canFillInForm = null;
+
+	@AccessPermissionField(methodName = "setCanModify")
+	private ComboBoxModel<Boolean> canModify = null;
+
+	@AccessPermissionField(methodName = "setCanModifyAnnotations")
+	private ComboBoxModel<Boolean> canModifyAnnotations = null;
+
+	@AccessPermissionField(methodName = "setCanPrint")
+	private ComboBoxModel<Boolean> canPrint = null;
+
+	@AccessPermissionField(methodName = "setCanPrintDegraded")
+	private ComboBoxModel<Boolean> canPrintDegraded = null;
 
 	private Color color = null;
 
@@ -106,6 +143,9 @@ public class DocumentWriter implements ActionListener {
 		add(container, new JLabel("User Password"));
 		add(container, pfUser = new JPasswordField(), wrap);
 		//
+		add(container, new JLabel("Permission(s)"));
+		add(container, createAccessPermissionPanel(), wrap);
+		//
 		add(container, new JLabel(""));
 		add(container, btnExecute = new JButton("Execute"), wrap);
 		//
@@ -119,6 +159,35 @@ public class DocumentWriter implements ActionListener {
 		final int width = Math.max(250, (int) getWidth(tfText.getPreferredSize(), 250));
 		setWidth(width - (int) btnCopy.getPreferredSize().getWidth(), tfFile);
 		setWidth(width, tfFontSize, tfMargin, tfText, pfOwner, pfUser);
+		//
+	}
+
+	private JPanel createAccessPermissionPanel() {
+
+		final JPanel panel = new JPanel();
+		panel.setLayout(new MigLayout());
+		//
+		add(panel, new JLabel("Assemble Document"));
+		add(panel, new JLabel("Extract Content"));
+		add(panel, new JLabel("Extract For Accessibility"));
+		add(panel, new JLabel("Fill In Form"));
+		add(panel, new JLabel("Modify"));
+		add(panel, new JLabel("Modify Annotations"));
+		add(panel, new JLabel("Print"));
+		add(panel, new JLabel("Print Degraded"), WRAP);
+		//
+		final Boolean[] booleans = new Boolean[] { null, Boolean.FALSE, Boolean.TRUE };
+		//
+		add(panel, new JComboBox<>(canAssembleDocument = new DefaultComboBoxModel<>(booleans)));
+		add(panel, new JComboBox<>(canExtractContent = new DefaultComboBoxModel<>(booleans)));
+		add(panel, new JComboBox<>(canExtractForAccessibility = new DefaultComboBoxModel<>(booleans)));
+		add(panel, new JComboBox<>(canFillInForm = new DefaultComboBoxModel<>(booleans)));
+		add(panel, new JComboBox<>(canModify = new DefaultComboBoxModel<>(booleans)));
+		add(panel, new JComboBox<>(canModifyAnnotations = new DefaultComboBoxModel<>(booleans)));
+		add(panel, new JComboBox<>(canPrint = new DefaultComboBoxModel<>(booleans)));
+		add(panel, new JComboBox<>(canPrintDegraded = new DefaultComboBoxModel<>(booleans)), WRAP);
+		//
+		return panel;
 		//
 	}
 
@@ -155,9 +224,7 @@ public class DocumentWriter implements ActionListener {
 				continue;
 			} // skip null
 				//
-			if (!f.isAccessible()) {
-				f.setAccessible(true);
-			}
+			setAccessible(f);
 			//
 			try {
 				//
@@ -180,6 +247,12 @@ public class DocumentWriter implements ActionListener {
 		//
 	}
 
+	private static void setAccessible(final AccessibleObject instance) {
+		if (instance != null && !instance.isAccessible()) {
+			instance.setAccessible(true);
+		}
+	}
+
 	private static Map<String, PDRectangle> getPageSizeMap() {
 		return getPageSizeMap(PDRectangle.class.getDeclaredFields());
 	}
@@ -197,9 +270,7 @@ public class DocumentWriter implements ActionListener {
 				continue;
 			} // skip null
 				//
-			if (!f.isAccessible()) {
-				f.setAccessible(true);
-			}
+			setAccessible(f);
 			//
 			try {
 				//
@@ -329,7 +400,8 @@ public class DocumentWriter implements ActionListener {
 				//
 				// https://pdfbox.apache.org/1.8/cookbook/encryption.html
 				//
-				document.protect(createProtectionPolicy(getText(pfOwner), getText(pfUser), new AccessPermission()));
+				document.protect(createProtectionPolicy(getText(pfOwner), getText(pfUser),
+						createAccessPermission(this, getClass().getDeclaredFields())));
 				//
 				document.save(file);
 				//
@@ -362,6 +434,49 @@ public class DocumentWriter implements ActionListener {
 				accessPermission);
 		result.setPreferAES(true);
 		result.setEncryptionKeyLength(128);
+		return result;
+		//
+	}
+
+	private static AccessPermission createAccessPermission(final Object instance, final Field[] fs) {
+		//
+		final AccessPermission result = new AccessPermission();
+		//
+		Field f = null;
+		AccessPermissionField apf = null;
+		String methodName = null;
+		//
+		ComboBoxModel<?> model = null;
+		Boolean b = null;
+		//
+		Method method = null;
+		//
+		for (int i = 0; fs != null && i < fs.length; i++) {
+			//
+			if ((f = fs[i]) == null || (apf = f.getAnnotation(AccessPermissionField.class)) == null
+					|| StringUtils.isEmpty(methodName = apf.methodName())) {
+				continue;
+			}
+			//
+			setAccessible(f);
+			//
+			try {
+				//
+				if ((model = cast(ComboBoxModel.class, instance != null ? f.get(instance) : null)) != null
+						&& (b = cast(Boolean.class, model.getSelectedItem())) != null
+						&& (method = AccessPermission.class.getDeclaredMethod(methodName, Boolean.TYPE)) != null) {
+					//
+					setAccessible(method);
+					//
+					method.invoke(result, b);
+					//
+				}
+				//
+			} catch (final ReflectiveOperationException e) {
+				LOG.severe(e.getMessage());
+			}
+		} // for
+			//
 		return result;
 		//
 	}

@@ -6,12 +6,14 @@ import java.awt.Container;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.geom.Dimension2D;
+import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 import javax.swing.AbstractButton;
@@ -42,7 +44,7 @@ class DocumentWriterTest {
 	private static Method METHOD_INIT, METHOD_GET_WIDTH, METHOD_GET_FONTS, METHOD_GET_PAGE_SIZE_MAP, METHOD_CAST,
 			METHOD_ADD_ACTION_LISTENER, METHOD_CREATE_PROTECTION_POLICY, METHOD_SET_TEXT, METHOD_TEST_AND_GET,
 			METHOD_GET_FOREGROUND, METHOD_VALUE_OF, METHOD_GET, METHOD_GET_SELECTED_ITEM, METHOD_SET_WIDTH,
-			METHOD_GET_TEXT = null;
+			METHOD_GET_TEXT, METHOD_CREATE_ACCESS_PERMISSION, METHOD_SET_ACCESSIBLE = null;
 
 	@BeforeAll
 	static void beforeAll() throws ReflectiveOperationException {
@@ -81,6 +83,11 @@ class DocumentWriterTest {
 		(METHOD_SET_WIDTH = clz.getDeclaredMethod("setWidth", Integer.TYPE, Component[].class)).setAccessible(true);
 		//
 		(METHOD_GET_TEXT = clz.getDeclaredMethod("getText", JTextComponent.class)).setAccessible(true);
+		//
+		(METHOD_CREATE_ACCESS_PERMISSION = clz.getDeclaredMethod("createAccessPermission", Object.class, Field[].class))
+				.setAccessible(true);
+		//
+		(METHOD_SET_ACCESSIBLE = clz.getDeclaredMethod("setAccessible", AccessibleObject.class)).setAccessible(true);
 		//
 	}
 
@@ -135,10 +142,18 @@ class DocumentWriterTest {
 			if (obj instanceof Double) {
 				return ((Double) obj).doubleValue();
 			}
-			throw new Throwable(obj != null && obj.getClass() != null ? obj.getClass().toString() : null);
+			throw new Throwable(toString(getClass(obj)));
 		} catch (final InvocationTargetException e) {
 			throw e.getTargetException();
 		}
+	}
+
+	private static Class<?> getClass(final Object instance) {
+		return instance != null ? instance.getClass() : null;
+	}
+
+	private static String toString(final Object instance) {
+		return instance != null ? instance.toString() : null;
 	}
 
 	@Test
@@ -157,7 +172,7 @@ class DocumentWriterTest {
 			} else if (obj instanceof PDFont[]) {
 				return (PDFont[]) obj;
 			}
-			throw new Throwable(obj.getClass() != null ? obj.getClass().toString() : null);
+			throw new Throwable(toString(getClass(obj)));
 		} catch (final InvocationTargetException e) {
 			throw e.getTargetException();
 		}
@@ -179,7 +194,7 @@ class DocumentWriterTest {
 			} else if (obj instanceof Map) {
 				return (Map) obj;
 			}
-			throw new Throwable(obj.getClass() != null ? obj.getClass().toString() : null);
+			throw new Throwable(toString(getClass(obj)));
 		} catch (final InvocationTargetException e) {
 			throw e.getTargetException();
 		}
@@ -245,7 +260,7 @@ class DocumentWriterTest {
 			} else if (obj instanceof ProtectionPolicy) {
 				return (ProtectionPolicy) obj;
 			}
-			throw new Throwable(obj.getClass() != null ? obj.getClass().toString() : null);
+			throw new Throwable(toString(getClass(obj)));
 		} catch (final InvocationTargetException e) {
 			throw e.getTargetException();
 		}
@@ -299,7 +314,7 @@ class DocumentWriterTest {
 			} else if (obj instanceof Color) {
 				return (Color) obj;
 			}
-			throw new Throwable(obj.getClass() != null ? obj.getClass().toString() : null);
+			throw new Throwable(toString(getClass(obj)));
 		} catch (final InvocationTargetException e) {
 			throw e.getTargetException();
 		}
@@ -324,7 +339,7 @@ class DocumentWriterTest {
 			} else if (obj instanceof Integer) {
 				return (Integer) obj;
 			}
-			throw new Throwable(obj.getClass() != null ? obj.getClass().toString() : null);
+			throw new Throwable(toString(getClass(obj)));
 		} catch (final InvocationTargetException e) {
 			throw e.getTargetException();
 		}
@@ -393,7 +408,70 @@ class DocumentWriterTest {
 			} else if (obj instanceof String) {
 				return (String) obj;
 			}
-			throw new Throwable(obj.getClass() != null ? obj.getClass().toString() : null);
+			throw new Throwable(toString(getClass(obj)));
+		} catch (final InvocationTargetException e) {
+			throw e.getTargetException();
+		}
+	}
+
+	@Test
+	void testCreateAccessPermission() throws Throwable {
+		//
+		final Function<Object, String> toString = item -> ToStringBuilder.reflectionToString(item,
+				ToStringStyle.SHORT_PREFIX_STYLE);
+		//
+		Assertions.assertEquals("AccessPermission[bytes=-4,readOnly=false]",
+				toString.apply(createAccessPermission(null, null)));
+		//
+		final Field field = DocumentWriter.class.getDeclaredField("canAssembleDocument");
+		final Field[] fields = new Field[] { null, String.class.getDeclaredField("value"), field };
+		//
+		Assertions.assertEquals("AccessPermission[bytes=-4,readOnly=false]",
+				toString.apply(createAccessPermission(null, fields)));
+		Assertions.assertEquals("AccessPermission[bytes=-4,readOnly=false]",
+				toString.apply(createAccessPermission(instance, fields)));
+		//
+		setAccessible(field);
+		//
+		final ComboBoxModel<?> canAssembleDocument = new DefaultComboBoxModel<>(
+				new Boolean[] { null, Boolean.FALSE, Boolean.TRUE });
+		field.set(instance, canAssembleDocument);
+		//
+		Assertions.assertEquals("AccessPermission[bytes=-4,readOnly=false]",
+				toString.apply(createAccessPermission(null, fields)));
+		Assertions.assertEquals("AccessPermission[bytes=-4,readOnly=false]",
+				toString.apply(createAccessPermission(instance, fields)));
+		//
+		canAssembleDocument.setSelectedItem(Boolean.FALSE);
+		Assertions.assertEquals("AccessPermission[bytes=-4,readOnly=false]",
+				toString.apply(createAccessPermission(null, fields)));
+		Assertions.assertEquals("AccessPermission[bytes=-1028,readOnly=false]",
+				toString.apply(createAccessPermission(instance, fields)));
+		//
+	}
+
+	private static AccessPermission createAccessPermission(final Object instance, final Field[] fs) throws Throwable {
+		try {
+			final Object obj = METHOD_CREATE_ACCESS_PERMISSION.invoke(null, instance, fs);
+			if (obj == null) {
+				return null;
+			} else if (obj instanceof AccessPermission) {
+				return (AccessPermission) obj;
+			}
+			throw new Throwable(toString(getClass(obj)));
+		} catch (final InvocationTargetException e) {
+			throw e.getTargetException();
+		}
+	}
+
+	@Test
+	void testSetAccessible() {
+		Assertions.assertDoesNotThrow(() -> setAccessible(null));
+	}
+
+	private static void setAccessible(final AccessibleObject instance) throws Throwable {
+		try {
+			METHOD_SET_ACCESSIBLE.invoke(null, instance);
 		} catch (final InvocationTargetException e) {
 			throw e.getTargetException();
 		}
