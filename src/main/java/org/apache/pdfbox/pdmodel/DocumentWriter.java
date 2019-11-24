@@ -347,35 +347,9 @@ public class DocumentWriter implements ActionListener {
 				document.setVersion(1.7f);
 				document.addPage(page);
 				//
-				final List<String> lines = new ArrayList<>();
-				//
 				final PDRectangle mediabox = page.getMediaBox();
 				float width = mediabox.getWidth() - 2 * margin.intValue();
-				//
-				for (String text : ObjectUtils.defaultIfNull(StringUtils.split(getText(tfText), "\n"), new String[0])) {
-					int lastSpace = -1;
-					while (text.length() > 0) {
-						int spaceIndex = text.indexOf(' ', lastSpace + 1);
-						if (spaceIndex < 0)
-							spaceIndex = text.length();
-						String subString = text.substring(0, spaceIndex);
-						float size = fontSize * font.getStringWidth(subString) / 1000;
-						if (size > width) {
-							if (lastSpace < 0) {
-								lastSpace = spaceIndex;
-							}
-							subString = text.substring(0, lastSpace);
-							lines.add(subString);
-							text = text.substring(lastSpace).trim();
-							lastSpace = -1;
-						} else if (spaceIndex == text.length()) {
-							lines.add(text);
-							text = "";
-						} else {
-							lastSpace = spaceIndex;
-						}
-					}
-				}
+				final List<String> lines = toLines(getText(tfText), font, fontSize, width);
 				//
 				float startX = mediabox.getLowerLeftX() + margin.intValue();
 				float startY = mediabox.getUpperRightY() - margin.intValue();
@@ -425,6 +399,64 @@ public class DocumentWriter implements ActionListener {
 			//
 		}
 		//
+	}
+
+	private static List<String> toLines(final String input, final PDFont font, final Integer fontSize,
+			final float width) throws IOException {
+		//
+		List<String> lines = null;
+		//
+		for (String text : ObjectUtils.defaultIfNull(StringUtils.split(input, "\n"), new String[0])) {
+			//
+			int lastSpace = -1;
+			//
+			while (text.length() > 0) {
+				//
+				int spaceIndex = text.indexOf(' ', lastSpace + 1);
+				//
+				if (spaceIndex < 0) {
+					spaceIndex = text.length();
+				}
+				//
+				String subString = text.substring(0, spaceIndex);
+				//
+				float size = intValue(fontSize, 0) * (font != null ? font.getStringWidth(subString) : 0) / 1000;
+				//
+				if (size > width) {
+					//
+					if (lastSpace < 0) {
+						lastSpace = spaceIndex;
+					}
+					//
+					if (lines == null) {
+						lines = new ArrayList<>();
+					}
+					lines.add(subString = text.substring(0, lastSpace));
+					text = text.substring(lastSpace).trim();
+					lastSpace = -1;
+					//
+				} else if (spaceIndex == text.length()) {
+					//
+					if (lines == null) {
+						lines = new ArrayList<>();
+					}
+					lines.add(text);
+					text = "";
+					//
+				} else {
+					lastSpace = spaceIndex;
+				}
+				//
+			} // while
+				//
+		} // for
+			//
+		return lines;
+		//
+	}
+
+	private static int intValue(final Number instance, final int defaultValue) {
+		return instance != null ? instance.intValue() : defaultValue;
 	}
 
 	private static ProtectionPolicy createProtectionPolicy(final String ownerPassword, final String userPassword,

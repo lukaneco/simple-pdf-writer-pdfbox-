@@ -11,7 +11,9 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -44,7 +46,7 @@ class DocumentWriterTest {
 	private static Method METHOD_INIT, METHOD_GET_WIDTH, METHOD_GET_FONTS, METHOD_GET_PAGE_SIZE_MAP, METHOD_CAST,
 			METHOD_ADD_ACTION_LISTENER, METHOD_CREATE_PROTECTION_POLICY, METHOD_SET_TEXT, METHOD_TEST_AND_GET,
 			METHOD_GET_FOREGROUND, METHOD_VALUE_OF, METHOD_GET, METHOD_GET_SELECTED_ITEM, METHOD_SET_WIDTH,
-			METHOD_GET_TEXT, METHOD_CREATE_ACCESS_PERMISSION, METHOD_SET_ACCESSIBLE = null;
+			METHOD_GET_TEXT, METHOD_CREATE_ACCESS_PERMISSION, METHOD_SET_ACCESSIBLE, METHOD_TO_LINES = null;
 
 	@BeforeAll
 	static void beforeAll() throws ReflectiveOperationException {
@@ -88,6 +90,9 @@ class DocumentWriterTest {
 				.setAccessible(true);
 		//
 		(METHOD_SET_ACCESSIBLE = clz.getDeclaredMethod("setAccessible", AccessibleObject.class)).setAccessible(true);
+		//
+		(METHOD_TO_LINES = clz.getDeclaredMethod("toLines", String.class, PDFont.class, Integer.class, Float.TYPE))
+				.setAccessible(true);
 		//
 	}
 
@@ -472,6 +477,36 @@ class DocumentWriterTest {
 	private static void setAccessible(final AccessibleObject instance) throws Throwable {
 		try {
 			METHOD_SET_ACCESSIBLE.invoke(null, instance);
+		} catch (final InvocationTargetException e) {
+			throw e.getTargetException();
+		}
+	}
+
+	@Test
+	void testToLines() throws Throwable {
+		//
+		Assertions.assertNull(toLines(null, null, null, 0));
+		Assertions.assertNull(toLines("", null, null, 0));
+		//
+		Assertions.assertEquals(Arrays.asList(OWNER_PASSWORD), toLines(OWNER_PASSWORD, null, null, 0));
+		Assertions.assertEquals(Arrays.asList(OWNER_PASSWORD), toLines(OWNER_PASSWORD, null, 1, 0));
+		//
+		final String line2 = "line 2";
+		Assertions.assertEquals(Arrays.asList(OWNER_PASSWORD, line2),
+				toLines(OWNER_PASSWORD + "\n" + line2, null, 1, 0));
+		//
+	}
+
+	private static List<String> toLines(final String input, final PDFont font, final Integer fontSize,
+			final float width) throws Throwable {
+		try {
+			final Object obj = METHOD_TO_LINES.invoke(null, input, font, fontSize, width);
+			if (obj == null) {
+				return null;
+			} else if (obj instanceof List) {
+				return (List) obj;
+			}
+			throw new Throwable(toString(getClass(obj)));
 		} catch (final InvocationTargetException e) {
 			throw e.getTargetException();
 		}
