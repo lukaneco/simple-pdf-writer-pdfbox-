@@ -21,6 +21,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -349,7 +350,8 @@ public class DocumentWriter implements ActionListener {
 				//
 				final PDRectangle mediabox = page.getMediaBox();
 				float width = mediabox.getWidth() - 2 * margin.intValue();
-				final List<String> lines = toLines(getText(tfText), font, fontSize, width);
+				final List<String> lines = ObjectUtils.defaultIfNull(toLines(getText(tfText), font, fontSize, width),
+						Collections.emptyList());
 				//
 				float startX = mediabox.getLowerLeftX() + margin.intValue();
 				float startY = mediabox.getUpperRightY() - margin.intValue();
