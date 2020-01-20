@@ -35,6 +35,7 @@ import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
 import javax.swing.JColorChooser;
 import javax.swing.JComboBox;
+import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -66,9 +67,10 @@ public class DocumentWriter implements ActionListener {
 
 	private static final String WRAP = "wrap";
 
-	private JTextComponent tfFontSize, tfMargin, tfText, pfOwner, pfUser, tfFile = null;
+	private JTextComponent tfFontSize, tfMargin, tfText, pfOwner, pfUser, tfFile, tfTitle, tfAuthor, tfSubject,
+			tfKeywords, tfCreator = null;
 
-	private AbstractButton btnColor, btnExecute, btnCopy = null;
+	private AbstractButton btnColor, btnProperties, btnExecute, btnCopy = null;
 
 	private ComboBoxModel<Object> pageSize = null;
 
@@ -148,6 +150,9 @@ public class DocumentWriter implements ActionListener {
 		add(container, createAccessPermissionPanel(), wrap);
 		//
 		add(container, new JLabel(""));
+		add(container, btnProperties = new JButton("Properties"), wrap);
+		//
+		add(container, new JLabel(""));
 		add(container, btnExecute = new JButton("Execute"), wrap);
 		//
 		add(container, new JLabel("File"));
@@ -155,7 +160,7 @@ public class DocumentWriter implements ActionListener {
 		add(container, btnCopy = new JButton("Copy"), "wrap");
 		tfFile.setEditable(false);
 		//
-		addActionListener(this, btnColor, btnExecute, btnCopy);
+		addActionListener(this, btnColor, btnProperties, btnExecute, btnCopy);
 		//
 		final int width = Math.max(250, (int) getWidth(tfText.getPreferredSize(), 250));
 		setWidth(width - (int) btnCopy.getPreferredSize().getWidth(), tfFile);
@@ -371,6 +376,15 @@ public class DocumentWriter implements ActionListener {
 				contentStream.endText();
 				contentStream.close();
 				//
+				final PDDocumentInformation documentInformation = document.getDocumentInformation();
+				if (documentInformation != null) {
+					documentInformation.setTitle(getText(tfTitle));
+					documentInformation.setAuthor(getText(tfAuthor));
+					documentInformation.setSubject(getText(tfSubject));
+					documentInformation.setKeywords(getText(tfKeywords));
+					documentInformation.setCreator(getText(tfCreator));
+				}
+				//
 				final File file = new File("test.pdf");
 				setText(tfFile, file.getAbsolutePath());
 				//
@@ -398,6 +412,31 @@ public class DocumentWriter implements ActionListener {
 		} else if (Objects.deepEquals(source, btnColor)) {
 			//
 			tfText.setForeground(color = JColorChooser.showDialog(null, "Font color", null));
+			//
+		} else if (Objects.deepEquals(source, btnProperties)) {
+			//
+			final JDialog dialog = new JDialog();
+			dialog.setLayout(new MigLayout());
+			//
+			add(dialog, new JLabel("Title"));
+			add(dialog, tfTitle = ObjectUtils.defaultIfNull(tfTitle, new JTextField()), WRAP);
+			//
+			add(dialog, new JLabel("Author"));
+			add(dialog, tfAuthor = ObjectUtils.defaultIfNull(tfAuthor, new JTextField()), WRAP);
+			//
+			add(dialog, new JLabel("Subject"));
+			add(dialog, tfSubject = ObjectUtils.defaultIfNull(tfSubject, new JTextField()), WRAP);
+			//
+			add(dialog, new JLabel("Keywords"));
+			add(dialog, tfKeywords = ObjectUtils.defaultIfNull(tfKeywords, new JTextField()), WRAP);
+			//
+			add(dialog, new JLabel("Creator"));
+			add(dialog, tfCreator = ObjectUtils.defaultIfNull(tfCreator, new JTextField()), WRAP);
+			//
+			setWidth(200, tfTitle, tfAuthor, tfSubject, tfKeywords, tfCreator);
+			//
+			dialog.pack();
+			dialog.setVisible(true);
 			//
 		}
 		//
