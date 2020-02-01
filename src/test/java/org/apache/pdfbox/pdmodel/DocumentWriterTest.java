@@ -1,7 +1,5 @@
 package org.apache.pdfbox.pdmodel;
 
-import static org.junit.jupiter.api.Assertions.*;
-
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
@@ -21,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import javax.swing.AbstractButton;
 import javax.swing.ComboBoxModel;
@@ -50,10 +49,11 @@ class DocumentWriterTest {
 	private static final String OWNER_PASSWORD = "OWNER_PASSWORD";
 
 	private static Method METHOD_INIT, METHOD_GET_WIDTH, METHOD_GET_FONTS, METHOD_GET_PAGE_SIZE_MAP, METHOD_CAST,
-			METHOD_ADD_ACTION_LISTENER, METHOD_CREATE_PROTECTION_POLICY, METHOD_SET_TEXT, METHOD_TEST_AND_GET,
-			METHOD_GET_FOREGROUND, METHOD_VALUE_OF, METHOD_GET, METHOD_GET_SELECTED_ITEM, METHOD_SET_WIDTH,
-			METHOD_GET_TEXT, METHOD_CREATE_ACCESS_PERMISSION, METHOD_SET_ACCESSIBLE, METHOD_TO_LINES,
-			METHOD_CHECK_PASSWORD, METHOD_PACK, METHOD_SET_VISIBLE, METHOD_CREATE_PROPERTIES_DIALOG = null;
+			METHOD_ADD_ACTION_LISTENER, METHOD_CREATE_PROTECTION_POLICY, METHOD_SET_TEXT, METHOD_TEST_AND_GET2,
+			METHOD_TEST_AND_GET3, METHOD_GET_FOREGROUND, METHOD_VALUE_OF, METHOD_GET, METHOD_GET_SELECTED_ITEM,
+			METHOD_SET_WIDTH, METHOD_GET_TEXT, METHOD_CREATE_ACCESS_PERMISSION, METHOD_SET_ACCESSIBLE, METHOD_TO_LINES,
+			METHOD_CHECK_PASSWORD, METHOD_PACK, METHOD_SET_VISIBLE, METHOD_CREATE_PROPERTIES_DIALOG,
+			METHOD_CREATE_PERMISSION_DIALOG = null;
 
 	@BeforeAll
 	static void beforeAll() throws ReflectiveOperationException {
@@ -78,7 +78,10 @@ class DocumentWriterTest {
 		//
 		(METHOD_SET_TEXT = clz.getDeclaredMethod("setText", JTextComponent.class, String.class)).setAccessible(true);
 		//
-		(METHOD_TEST_AND_GET = clz.getDeclaredMethod("testAndGet", Predicate.class, Object[].class))
+		(METHOD_TEST_AND_GET2 = clz.getDeclaredMethod("testAndGet", Predicate.class, Object[].class))
+				.setAccessible(true);
+		//
+		(METHOD_TEST_AND_GET3 = clz.getDeclaredMethod("testAndGet", Predicate.class, Object.class, Supplier.class))
 				.setAccessible(true);
 		//
 		(METHOD_GET_FOREGROUND = clz.getDeclaredMethod("getForeground", Component.class)).setAccessible(true);
@@ -109,6 +112,8 @@ class DocumentWriterTest {
 		(METHOD_SET_VISIBLE = clz.getDeclaredMethod("setVisible", Component.class, Boolean.TYPE)).setAccessible(true);
 		//
 		(METHOD_CREATE_PROPERTIES_DIALOG = clz.getDeclaredMethod("createPropertiesDialog")).setAccessible(true);
+		//
+		(METHOD_CREATE_PERMISSION_DIALOG = clz.getDeclaredMethod("createPermissionDialog")).setAccessible(true);
 		//
 	}
 
@@ -312,11 +317,23 @@ class DocumentWriterTest {
 		//
 		Assertions.assertSame(OWNER_PASSWORD, testAndGet(Predicates.alwaysTrue(), OWNER_PASSWORD));
 		//
+		Assertions.assertNull(testAndGet(null, null, null));
+		Assertions.assertNull(testAndGet(x -> x != null, null, null));
+		//
 	}
 
 	private static <T> T testAndGet(final Predicate<T> predicate, final T... items) throws Throwable {
 		try {
-			return (T) METHOD_TEST_AND_GET.invoke(null, predicate, items);
+			return (T) METHOD_TEST_AND_GET2.invoke(null, predicate, items);
+		} catch (final InvocationTargetException e) {
+			throw e.getTargetException();
+		}
+	}
+
+	private static <T> T testAndGet(final Predicate<Object> predicate, final T value, final Supplier<T> supplier)
+			throws Throwable {
+		try {
+			return (T) METHOD_TEST_AND_GET3.invoke(null, predicate, value, supplier);
 		} catch (final InvocationTargetException e) {
 			throw e.getTargetException();
 		}
@@ -601,6 +618,29 @@ class DocumentWriterTest {
 	private JDialog createPropertiesDialog() throws Throwable {
 		try {
 			final Object obj = METHOD_CREATE_PROPERTIES_DIALOG.invoke(instance);
+			if (obj == null) {
+				return null;
+			} else if (obj instanceof JDialog) {
+				return (JDialog) obj;
+			}
+			throw new Throwable(toString(getClass(obj)));
+		} catch (final InvocationTargetException e) {
+			throw e.getTargetException();
+		}
+	}
+
+	@Test
+	void testCreatePermissionDialog() throws Throwable {
+		//
+		final JDialog instance1 = createPermissionDialog();
+		Assertions.assertNotNull(instance1);
+		Assertions.assertNotSame(instance1, createPermissionDialog());
+		//
+	}
+
+	private JDialog createPermissionDialog() throws Throwable {
+		try {
+			final Object obj = METHOD_CREATE_PERMISSION_DIALOG.invoke(instance);
 			if (obj == null) {
 				return null;
 			} else if (obj instanceof JDialog) {

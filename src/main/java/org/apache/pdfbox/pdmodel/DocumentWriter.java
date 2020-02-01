@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.logging.Logger;
 
 import javax.swing.AbstractButton;
@@ -71,7 +72,7 @@ public class DocumentWriter implements ActionListener {
 	private JTextComponent tfFontSize, tfMargin, tfText, pfOwner1, pfOwner2, pfUser1, pfUser2, tfFile, tfTitle,
 			tfAuthor, tfSubject, tfKeywords, tfCreator = null;
 
-	private AbstractButton btnColor, btnProperties, btnExecute, btnCopy = null;
+	private AbstractButton btnColor, btnProperties, btnPermission, btnExecute, btnCopy = null;
 
 	private ComboBoxModel<Object> pageSize = null;
 
@@ -116,9 +117,11 @@ public class DocumentWriter implements ActionListener {
 
 	private void init(final Container container) {
 		//
-		final String wrap = String.format("span %1$s,%2$s", 2, WRAP);
+		final String wrap = String.format("span %1$s,%2$s", 3, WRAP);
 		//
-		add(container, new JLabel("Page Size"));
+		final JLabel label = new JLabel("Page Size");
+		//
+		add(container, label);
 		add(container,
 				new JComboBox<>(pageSize = new DefaultComboBoxModel<>(
 						ArrayUtils.insert(0, (pageSizeMap = getPageSizeMap()).keySet().toArray(), (Object) null))),
@@ -149,12 +152,11 @@ public class DocumentWriter implements ActionListener {
 		add(container, pfUser1 = new JPasswordField());
 		add(container, pfUser2 = new JPasswordField(), wrap);
 		//
-		final JPanel panel = createAccessPermissionPanel();
-		add(container, new JLabel("Permission(s)"));
-		add(container, panel, wrap);
-		//
 		add(container, new JLabel(""));
-		add(container, btnProperties = new JButton("Properties"), wrap);
+		final JPanel panel = new JPanel();
+		add(panel, btnProperties = new JButton("Properties"));
+		add(panel, btnPermission = new JButton("Permission"));
+		add(container, panel, wrap);
 		//
 		add(container, new JLabel(""));
 		add(container, btnExecute = new JButton("Execute"), wrap);
@@ -164,46 +166,17 @@ public class DocumentWriter implements ActionListener {
 		add(container, btnCopy = new JButton("Copy"), "wrap");
 		tfFile.setEditable(false);
 		//
-		addActionListener(this, btnColor, btnProperties, btnExecute, btnCopy);
+		addActionListener(this, btnColor, btnProperties, btnPermission, btnExecute, btnCopy);
 		//
 		final int width = Math.max(250, (int) getWidth(getPreferredSize(tfText), 250));
 		setWidth(width - (int) getPreferredSize(btnCopy).getWidth(), tfFile);
 		setWidth(width, tfFontSize, tfMargin, tfText);
-		setWidth((int) getWidth(getPreferredSize(panel), 0) / 2, pfOwner1, pfOwner2, pfUser1, pfUser2);
+		setWidth((int) (width - getWidth(getPreferredSize(label), 0) * 3) / 2, pfOwner1, pfOwner2, pfUser1, pfUser2);
 		//
 	}
 
 	private static Dimension getPreferredSize(final Component instance) {
 		return instance != null ? instance.getPreferredSize() : null;
-	}
-
-	private JPanel createAccessPermissionPanel() {
-
-		final JPanel panel = new JPanel();
-		panel.setLayout(new MigLayout());
-		//
-		add(panel, new JLabel("Assemble Document"));
-		add(panel, new JLabel("Extract Content"));
-		add(panel, new JLabel("Extract For Accessibility"));
-		add(panel, new JLabel("Fill In Form"));
-		add(panel, new JLabel("Modify"));
-		add(panel, new JLabel("Modify Annotations"));
-		add(panel, new JLabel("Print"));
-		add(panel, new JLabel("Print Degraded"), WRAP);
-		//
-		final Boolean[] booleans = new Boolean[] { null, Boolean.FALSE, Boolean.TRUE };
-		//
-		add(panel, new JComboBox<>(canAssembleDocument = new DefaultComboBoxModel<>(booleans)));
-		add(panel, new JComboBox<>(canExtractContent = new DefaultComboBoxModel<>(booleans)));
-		add(panel, new JComboBox<>(canExtractForAccessibility = new DefaultComboBoxModel<>(booleans)));
-		add(panel, new JComboBox<>(canFillInForm = new DefaultComboBoxModel<>(booleans)));
-		add(panel, new JComboBox<>(canModify = new DefaultComboBoxModel<>(booleans)));
-		add(panel, new JComboBox<>(canModifyAnnotations = new DefaultComboBoxModel<>(booleans)));
-		add(panel, new JComboBox<>(canPrint = new DefaultComboBoxModel<>(booleans)));
-		add(panel, new JComboBox<>(canPrintDegraded = new DefaultComboBoxModel<>(booleans)), WRAP);
-		//
-		return panel;
-		//
 	}
 
 	private static void add(final Container container, final Component component) {
@@ -437,6 +410,13 @@ public class DocumentWriter implements ActionListener {
 			pack(dialog);
 			setVisible(dialog, true);
 			//
+		} else if (Objects.deepEquals(source, btnPermission)) {
+			//
+			final JDialog dialog = createPermissionDialog();
+			//
+			pack(dialog);
+			setVisible(dialog, true);
+			//
 		}
 		//
 	}
@@ -456,6 +436,7 @@ public class DocumentWriter implements ActionListener {
 	private JDialog createPropertiesDialog() {
 		//
 		final JDialog dialog = new JDialog();
+		dialog.setTitle("Properties");
 		dialog.setLayout(new MigLayout());
 		//
 		add(dialog, new JLabel("Title"));
@@ -476,6 +457,70 @@ public class DocumentWriter implements ActionListener {
 		setWidth(200, tfTitle, tfAuthor, tfSubject, tfKeywords, tfCreator);
 		//
 		return dialog;
+		//
+	}
+
+	private JDialog createPermissionDialog() {
+		//
+		final JDialog dialog = new JDialog();
+		dialog.setTitle("Permission");
+		dialog.setLayout(new MigLayout());
+		//
+		final Predicate<Object> notNull = x -> x != null;
+		//
+		final Boolean[] booleans = new Boolean[] { null, Boolean.FALSE, Boolean.TRUE };
+		//
+		add(dialog, new JLabel("Assemble Document"));
+		add(dialog, new JComboBox<>(canAssembleDocument = testAndGet(notNull, canAssembleDocument,
+				() -> new DefaultComboBoxModel<>(booleans))), WRAP);
+		//
+		add(dialog, new JLabel("Extract Content"));
+		add(dialog, new JComboBox<>(
+				canExtractContent = testAndGet(notNull, canExtractContent, () -> new DefaultComboBoxModel<>(booleans))),
+				WRAP);
+		//
+		add(dialog, new JLabel("Extract For Accessibility"));
+		add(dialog, new JComboBox<>(canExtractForAccessibility = testAndGet(notNull, canExtractForAccessibility,
+				() -> new DefaultComboBoxModel<>(booleans))), WRAP);
+		//
+		add(dialog, new JLabel("Fill In Form"));
+		add(dialog,
+				new JComboBox<>(
+						canFillInForm = testAndGet(notNull, canFillInForm, () -> new DefaultComboBoxModel<>(booleans))),
+				WRAP);
+		//
+		add(dialog, new JLabel("Modify"));
+		add(dialog,
+				new JComboBox<>(canModify = testAndGet(notNull, canModify, () -> new DefaultComboBoxModel<>(booleans))),
+				WRAP);
+		//
+		add(dialog, new JLabel("Modify Annotations"));
+		add(dialog, new JComboBox<>(canModifyAnnotations = testAndGet(notNull, canModifyAnnotations,
+				() -> new DefaultComboBoxModel<>(booleans))), WRAP);
+		//
+		add(dialog, new JLabel("Print"));
+		add(dialog,
+				new JComboBox<>(canPrint = testAndGet(notNull, canPrint, () -> new DefaultComboBoxModel<>(booleans))),
+				WRAP);
+		//
+		add(dialog, new JLabel("Print Degraded"));
+		add(dialog, new JComboBox<>(
+				canPrintDegraded = testAndGet(notNull, canPrintDegraded, () -> new DefaultComboBoxModel<>(booleans))),
+				WRAP);
+		//
+		setWidth(200, tfTitle, tfAuthor, tfSubject, tfKeywords, tfCreator);
+		//
+		return dialog;
+		//
+	}
+
+	private static <T> T testAndGet(final Predicate<Object> predicate, final T value, final Supplier<T> supplier) {
+		//
+		if (predicate == null || predicate.test(value)) {
+			return value;
+		}
+		//
+		return supplier != null ? supplier.get() : value;
 		//
 	}
 
