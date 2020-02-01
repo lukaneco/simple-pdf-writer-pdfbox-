@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
+import java.awt.GraphicsEnvironment;
+import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.geom.Dimension2D;
@@ -24,10 +26,11 @@ import javax.swing.AbstractButton;
 import javax.swing.ComboBoxModel;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
+import javax.swing.JDialog;
+import javax.swing.JFrame;
 import javax.swing.JTextField;
 import javax.swing.text.JTextComponent;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import org.apache.commons.lang3.reflect.FieldUtils;
@@ -50,7 +53,7 @@ class DocumentWriterTest {
 			METHOD_ADD_ACTION_LISTENER, METHOD_CREATE_PROTECTION_POLICY, METHOD_SET_TEXT, METHOD_TEST_AND_GET,
 			METHOD_GET_FOREGROUND, METHOD_VALUE_OF, METHOD_GET, METHOD_GET_SELECTED_ITEM, METHOD_SET_WIDTH,
 			METHOD_GET_TEXT, METHOD_CREATE_ACCESS_PERMISSION, METHOD_SET_ACCESSIBLE, METHOD_TO_LINES,
-			METHOD_CHECK_PASSWORD = null;
+			METHOD_CHECK_PASSWORD, METHOD_PACK, METHOD_SET_VISIBLE, METHOD_CREATE_PROPERTIES_DIALOG = null;
 
 	@BeforeAll
 	static void beforeAll() throws ReflectiveOperationException {
@@ -100,6 +103,12 @@ class DocumentWriterTest {
 		//
 		(METHOD_CHECK_PASSWORD = clz.getDeclaredMethod("checkPassword", CharSequence.class, CharSequence.class))
 				.setAccessible(true);
+		//
+		(METHOD_PACK = clz.getDeclaredMethod("pack", Window.class)).setAccessible(true);
+		//
+		(METHOD_SET_VISIBLE = clz.getDeclaredMethod("setVisible", Component.class, Boolean.TYPE)).setAccessible(true);
+		//
+		(METHOD_CREATE_PROPERTIES_DIALOG = clz.getDeclaredMethod("createPropertiesDialog")).setAccessible(true);
 		//
 	}
 
@@ -538,6 +547,64 @@ class DocumentWriterTest {
 			final Object obj = METHOD_CHECK_PASSWORD.invoke(null, password1, password2);
 			if (obj instanceof Boolean) {
 				return ((Boolean) obj).booleanValue();
+			}
+			throw new Throwable(toString(getClass(obj)));
+		} catch (final InvocationTargetException e) {
+			throw e.getTargetException();
+		}
+	}
+
+	@Test
+	void testPack() {
+		//
+		Assertions.assertDoesNotThrow(() -> pack(null));
+		Assertions.assertDoesNotThrow(() -> pack(new JFrame()));
+		//
+	}
+
+	private static void pack(final Window instance) throws Throwable {
+		try {
+			METHOD_PACK.invoke(null, instance);
+		} catch (final InvocationTargetException e) {
+			throw e.getTargetException();
+		}
+	}
+
+	@Test
+	void testSetVisible() {
+		//
+		Assertions.assertDoesNotThrow(() -> setVisible(null, true));
+		//
+		if (!GraphicsEnvironment.isHeadless()) {
+			Assertions.assertDoesNotThrow(() -> setVisible(new JFrame(), true));
+		}
+		//
+	}
+
+	private static void setVisible(final Component instance, final boolean flag) throws Throwable {
+		try {
+			METHOD_SET_VISIBLE.invoke(null, instance, flag);
+		} catch (final InvocationTargetException e) {
+			throw e.getTargetException();
+		}
+	}
+
+	@Test
+	void testCreatePropertiesDialog() throws Throwable {
+		//
+		final JDialog instance1 = createPropertiesDialog();
+		Assertions.assertNotNull(instance1);
+		Assertions.assertNotSame(instance1, createPropertiesDialog());
+		//
+	}
+
+	private JDialog createPropertiesDialog() throws Throwable {
+		try {
+			final Object obj = METHOD_CREATE_PROPERTIES_DIALOG.invoke(instance);
+			if (obj == null) {
+				return null;
+			} else if (obj instanceof JDialog) {
+				return (JDialog) obj;
 			}
 			throw new Throwable(toString(getClass(obj)));
 		} catch (final InvocationTargetException e) {

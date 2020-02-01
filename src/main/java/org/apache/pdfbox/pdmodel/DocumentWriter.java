@@ -5,6 +5,7 @@ import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Toolkit;
+import java.awt.Window;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
 import java.awt.event.ActionEvent;
@@ -431,30 +432,50 @@ public class DocumentWriter implements ActionListener {
 			//
 		} else if (Objects.deepEquals(source, btnProperties)) {
 			//
-			final JDialog dialog = new JDialog();
-			dialog.setLayout(new MigLayout());
+			final JDialog dialog = createPropertiesDialog();
 			//
-			add(dialog, new JLabel("Title"));
-			add(dialog, tfTitle = ObjectUtils.defaultIfNull(tfTitle, new JTextField()), WRAP);
-			//
-			add(dialog, new JLabel("Author"));
-			add(dialog, tfAuthor = ObjectUtils.defaultIfNull(tfAuthor, new JTextField()), WRAP);
-			//
-			add(dialog, new JLabel("Subject"));
-			add(dialog, tfSubject = ObjectUtils.defaultIfNull(tfSubject, new JTextField()), WRAP);
-			//
-			add(dialog, new JLabel("Keywords"));
-			add(dialog, tfKeywords = ObjectUtils.defaultIfNull(tfKeywords, new JTextField()), WRAP);
-			//
-			add(dialog, new JLabel("Creator"));
-			add(dialog, tfCreator = ObjectUtils.defaultIfNull(tfCreator, new JTextField()), WRAP);
-			//
-			setWidth(200, tfTitle, tfAuthor, tfSubject, tfKeywords, tfCreator);
-			//
-			dialog.pack();
-			dialog.setVisible(true);
+			pack(dialog);
+			setVisible(dialog, true);
 			//
 		}
+		//
+	}
+
+	private static void pack(final Window instance) {
+		if (instance != null) {
+			instance.pack();
+		}
+	}
+
+	private static void setVisible(final Component instance, final boolean flag) {
+		if (instance != null) {
+			instance.setVisible(flag);
+		}
+	}
+
+	private JDialog createPropertiesDialog() {
+		//
+		final JDialog dialog = new JDialog();
+		dialog.setLayout(new MigLayout());
+		//
+		add(dialog, new JLabel("Title"));
+		add(dialog, tfTitle = ObjectUtils.defaultIfNull(tfTitle, new JTextField()), WRAP);
+		//
+		add(dialog, new JLabel("Author"));
+		add(dialog, tfAuthor = ObjectUtils.defaultIfNull(tfAuthor, new JTextField()), WRAP);
+		//
+		add(dialog, new JLabel("Subject"));
+		add(dialog, tfSubject = ObjectUtils.defaultIfNull(tfSubject, new JTextField()), WRAP);
+		//
+		add(dialog, new JLabel("Keywords"));
+		add(dialog, tfKeywords = ObjectUtils.defaultIfNull(tfKeywords, new JTextField()), WRAP);
+		//
+		add(dialog, new JLabel("Creator"));
+		add(dialog, tfCreator = ObjectUtils.defaultIfNull(tfCreator, new JTextField()), WRAP);
+		//
+		setWidth(200, tfTitle, tfAuthor, tfSubject, tfKeywords, tfCreator);
+		//
+		return dialog;
 		//
 	}
 
@@ -657,8 +678,8 @@ public class DocumentWriter implements ActionListener {
 		//
 		final DocumentWriter instance = new DocumentWriter();
 		instance.init(frame.getContentPane());
-		frame.pack();
-		frame.setVisible(true);
+		pack(frame);
+		setVisible(frame, true);
 		//
 	}
 
