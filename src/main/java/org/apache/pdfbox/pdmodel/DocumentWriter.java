@@ -67,8 +67,8 @@ public class DocumentWriter implements ActionListener {
 
 	private static final String WRAP = "wrap";
 
-	private JTextComponent tfFontSize, tfMargin, tfText, pfOwner, pfUser, tfFile, tfTitle, tfAuthor, tfSubject,
-			tfKeywords, tfCreator = null;
+	private JTextComponent tfFontSize, tfMargin, tfText, pfOwner1, pfOwner2, pfUser1, pfUser2, tfFile, tfTitle,
+			tfAuthor, tfSubject, tfKeywords, tfCreator = null;
 
 	private AbstractButton btnColor, btnProperties, btnExecute, btnCopy = null;
 
@@ -141,13 +141,16 @@ public class DocumentWriter implements ActionListener {
 		add(container, btnColor = new JButton("Color"), wrap);
 		//
 		add(container, new JLabel("Owner Password"));
-		add(container, pfOwner = new JPasswordField(), wrap);
+		add(container, pfOwner1 = new JPasswordField());
+		add(container, pfOwner2 = new JPasswordField(), wrap);
 		//
 		add(container, new JLabel("User Password"));
-		add(container, pfUser = new JPasswordField(), wrap);
+		add(container, pfUser1 = new JPasswordField());
+		add(container, pfUser2 = new JPasswordField(), wrap);
 		//
+		final JPanel panel = createAccessPermissionPanel();
 		add(container, new JLabel("Permission(s)"));
-		add(container, createAccessPermissionPanel(), wrap);
+		add(container, panel, wrap);
 		//
 		add(container, new JLabel(""));
 		add(container, btnProperties = new JButton("Properties"), wrap);
@@ -156,16 +159,21 @@ public class DocumentWriter implements ActionListener {
 		add(container, btnExecute = new JButton("Execute"), wrap);
 		//
 		add(container, new JLabel("File"));
-		add(container, tfFile = new JTextField());
+		add(container, tfFile = new JTextField(), "span 2");
 		add(container, btnCopy = new JButton("Copy"), "wrap");
 		tfFile.setEditable(false);
 		//
 		addActionListener(this, btnColor, btnProperties, btnExecute, btnCopy);
 		//
-		final int width = Math.max(250, (int) getWidth(tfText.getPreferredSize(), 250));
-		setWidth(width - (int) btnCopy.getPreferredSize().getWidth(), tfFile);
-		setWidth(width, tfFontSize, tfMargin, tfText, pfOwner, pfUser);
+		final int width = Math.max(250, (int) getWidth(getPreferredSize(tfText), 250));
+		setWidth(width - (int) getPreferredSize(btnCopy).getWidth(), tfFile);
+		setWidth(width, tfFontSize, tfMargin, tfText);
+		setWidth((int) getWidth(getPreferredSize(panel), 0) / 2, pfOwner1, pfOwner2, pfUser1, pfUser2);
 		//
+	}
+
+	private static Dimension getPreferredSize(final Component instance) {
+		return instance != null ? instance.getPreferredSize() : null;
 	}
 
 	private JPanel createAccessPermissionPanel() {
@@ -390,7 +398,15 @@ public class DocumentWriter implements ActionListener {
 				//
 				// https://pdfbox.apache.org/1.8/cookbook/encryption.html
 				//
-				document.protect(createProtectionPolicy(getText(pfOwner), getText(pfUser),
+				if (!checkPassword(getText(pfOwner1), getText(pfOwner2))) {
+					JOptionPane.showMessageDialog(null, "Owner password not matched");
+					return;
+				} else if (!checkPassword(getText(pfUser1), getText(pfUser2))) {
+					JOptionPane.showMessageDialog(null, "User password not matched");
+					return;
+				}
+				//
+				document.protect(createProtectionPolicy(getText(pfOwner1), getText(pfUser1),
 						createAccessPermission(this, getClass().getDeclaredFields())));
 				//
 				document.save(file);
@@ -440,6 +456,11 @@ public class DocumentWriter implements ActionListener {
 			//
 		}
 		//
+	}
+
+	private static boolean checkPassword(final CharSequence password1, final CharSequence password2) {
+		return (StringUtils.isEmpty(password1) && StringUtils.isEmpty(password2))
+				|| StringUtils.equals(password1, password2);
 	}
 
 	private static List<String> toLines(final String input, final PDFont font, final Integer fontSize,
@@ -613,7 +634,7 @@ public class DocumentWriter implements ActionListener {
 		//
 		for (int i = 0; cs != null && i < cs.length; i++) {
 			//
-			if ((c = cs[i]) == null || (preferredSize = c.getPreferredSize()) == null) {
+			if ((preferredSize = getPreferredSize(c = cs[i])) == null) {
 				continue;
 			} // skip null
 				//

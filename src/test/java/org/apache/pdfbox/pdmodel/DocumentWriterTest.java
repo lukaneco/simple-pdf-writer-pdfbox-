@@ -1,5 +1,7 @@
 package org.apache.pdfbox.pdmodel;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
@@ -25,6 +27,7 @@ import javax.swing.JButton;
 import javax.swing.JTextField;
 import javax.swing.text.JTextComponent;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import org.apache.commons.lang3.reflect.FieldUtils;
@@ -46,7 +49,8 @@ class DocumentWriterTest {
 	private static Method METHOD_INIT, METHOD_GET_WIDTH, METHOD_GET_FONTS, METHOD_GET_PAGE_SIZE_MAP, METHOD_CAST,
 			METHOD_ADD_ACTION_LISTENER, METHOD_CREATE_PROTECTION_POLICY, METHOD_SET_TEXT, METHOD_TEST_AND_GET,
 			METHOD_GET_FOREGROUND, METHOD_VALUE_OF, METHOD_GET, METHOD_GET_SELECTED_ITEM, METHOD_SET_WIDTH,
-			METHOD_GET_TEXT, METHOD_CREATE_ACCESS_PERMISSION, METHOD_SET_ACCESSIBLE, METHOD_TO_LINES = null;
+			METHOD_GET_TEXT, METHOD_CREATE_ACCESS_PERMISSION, METHOD_SET_ACCESSIBLE, METHOD_TO_LINES,
+			METHOD_CHECK_PASSWORD = null;
 
 	@BeforeAll
 	static void beforeAll() throws ReflectiveOperationException {
@@ -92,6 +96,9 @@ class DocumentWriterTest {
 		(METHOD_SET_ACCESSIBLE = clz.getDeclaredMethod("setAccessible", AccessibleObject.class)).setAccessible(true);
 		//
 		(METHOD_TO_LINES = clz.getDeclaredMethod("toLines", String.class, PDFont.class, Integer.class, Float.TYPE))
+				.setAccessible(true);
+		//
+		(METHOD_CHECK_PASSWORD = clz.getDeclaredMethod("checkPassword", CharSequence.class, CharSequence.class))
 				.setAccessible(true);
 		//
 	}
@@ -505,6 +512,32 @@ class DocumentWriterTest {
 				return null;
 			} else if (obj instanceof List) {
 				return (List) obj;
+			}
+			throw new Throwable(toString(getClass(obj)));
+		} catch (final InvocationTargetException e) {
+			throw e.getTargetException();
+		}
+	}
+
+	@Test
+	void testCheckPassword() throws Throwable {
+		//
+		Assertions.assertTrue(checkPassword(null, null));
+		Assertions.assertTrue(checkPassword(null, ""));
+		Assertions.assertTrue(checkPassword("", null));
+		Assertions.assertTrue(checkPassword("", ""));
+		//
+		Assertions.assertFalse(checkPassword(" ", null));
+		Assertions.assertFalse(checkPassword(null, " "));
+		Assertions.assertTrue(checkPassword(" ", " "));
+		//
+	}
+
+	private static boolean checkPassword(final CharSequence password1, final CharSequence password2) throws Throwable {
+		try {
+			final Object obj = METHOD_CHECK_PASSWORD.invoke(null, password1, password2);
+			if (obj instanceof Boolean) {
+				return ((Boolean) obj).booleanValue();
 			}
 			throw new Throwable(toString(getClass(obj)));
 		} catch (final InvocationTargetException e) {
